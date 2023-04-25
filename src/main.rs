@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use std::env;
-use std::process::{self, Stdio};
+use std::process::{self, exit, Stdio};
 
 // Usage: your_docker.sh run <image> <command> <arg1> <arg2> ...
 fn main() -> Result<()> {
@@ -20,7 +20,11 @@ fn main() -> Result<()> {
             )
         })?;
 
-    child.wait()?;
+    let exit_code = child.wait()?.code();
+
+    if let Some(code) = exit_code {
+        exit(code);
+    }
 
     Ok(())
 }
