@@ -1,16 +1,18 @@
 use anyhow::{Context, Result};
-use std::str;
+use std::env;
+use std::process::{self, Stdio};
 
 // Usage: your_docker.sh run <image> <command> <arg1> <arg2> ...
 fn main() -> Result<()> {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
 
-    let args: Vec<_> = std::env::args().collect();
+    let args: Vec<_> = env::args().collect();
     let command = &args[3];
     let command_args = &args[4..];
-    let output = std::process::Command::new(command)
+    let mut child = process::Command::new(command)
         .args(command_args)
-        .output()
+        .stdin(Stdio::null())
+        .spawn()
         .with_context(|| {
             format!(
                 "Tried to run '{}' with arguments {:?}",
@@ -18,14 +20,7 @@ fn main() -> Result<()> {
             )
         })?;
 
-    if output.status.success() {
-        let std_out = str::from_utf8(&output.stdout)?;
-        print!("{}", std_out);
-        let std_err = str::from_utf8(&output.stderr)?;
-        eprint!("{}", std_err);
-    } else {
-        std::process::exit(1);
-    }
+    child.wait()?;
 
     Ok(())
 }
