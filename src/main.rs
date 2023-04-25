@@ -1,7 +1,4 @@
 use anyhow::{Context, Result};
-use libc::chroot;
-use tempfile::TempDir;
-
 use std::{
     env,
     ffi::CString,
@@ -10,8 +7,8 @@ use std::{
     path::Path,
     process::{self, exit, Stdio},
 };
+use tempfile::TempDir;
 
-// Usage: your_docker.sh run <image> <command> <arg1> <arg2> ...
 fn main() -> Result<()> {
     let temp_dir = TempDir::new()?;
     fs::create_dir_all(temp_dir.path().join("usr/local/bin/"))?;
@@ -22,11 +19,17 @@ fn main() -> Result<()> {
     fs::copy(source_path, &dest_path)?;
 
     let c_path = CString::new(temp_dir.path().as_os_str().as_bytes()).unwrap();
-    unsafe { chroot(c_path.as_ptr()) };
+    unsafe { libc::chroot(c_path.as_ptr()) };
 
     let args: Vec<_> = env::args().collect();
     let command = &args[3];
     let command_args = &args[4..];
+
+    #[cfg(target_os = "linux")]
+    unsafe {
+        libc::unshare(libc::CLONE_NEWPID);
+    }
+
     let mut child = process::Command::new(command)
         .args(command_args)
         .stdin(Stdio::null())
