@@ -1,12 +1,14 @@
 use anyhow::Result;
+use bytes::Bytes;
 use std::{env, fs, os::unix::fs::chroot, path::Path};
 use tempfile::TempDir;
 
-pub fn create() -> Result<()> {
+pub fn create(layers: Vec<Bytes>) -> Result<()> {
     let sandbox = TempDir::new()?;
     create_dev_null(&sandbox)?;
     copy_docker_explorer(&sandbox)?;
     isolate_filesystem(&sandbox)?;
+    extract_layers(layers)?;
     isolate_process();
 
     Ok(())
@@ -28,6 +30,15 @@ fn copy_docker_explorer(sandbox: &TempDir) -> Result<()> {
 fn isolate_filesystem(sandbox: &TempDir) -> Result<()> {
     chroot(sandbox.path())?;
     env::set_current_dir("/")?;
+    Ok(())
+}
+
+fn extract_layers(layers: Vec<Bytes>) -> Result<()> {
+    for layer in layers {
+        let layer = layer.to_vec();
+        let layer = flate2::read::GzDecoder::new(&layer[..]);
+        tar::Archive::new(layer).unpack("/")?;
+    }
     Ok(())
 }
 
